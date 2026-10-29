@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#121212">
     <title>Blindbeat | Music Blind Test</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -118,6 +119,22 @@
         @keyframes sp{to{transform:rotate(360deg)}}
         #toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,30px);background:var(--bad);color:#fff;padding:12px 20px;border-radius:12px;opacity:0;pointer-events:none;transition:.3s;z-index:60;max-width:90vw;text-align:center}
         #toast.on{opacity:1;transform:translate(-50%,0)}
+        .who{display:flex;align-items:center;gap:10px;font-size:.85rem;margin-left:12px}
+        .who span{max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .who button{color:var(--muted);font-size:.8rem;text-decoration:underline}
+        .av{width:32px;height:32px;border-radius:50%;object-fit:cover;background:var(--grad);display:inline-grid;place-items:center;font-weight:700;font-size:.8rem;color:#fff;flex:none}
+        .login{max-width:440px;margin:6vh auto 0;text-align:center}
+        .login .lead{margin-inline:auto}
+        .login .card{display:grid;gap:14px;justify-items:center;margin-top:22px}
+        .gbtn{display:inline-flex;align-items:center;gap:10px;background:#fff;color:#1f1f1f;font-weight:600;padding:12px 24px;border-radius:999px}
+        .gbtn svg{width:20px;height:20px}
+        .or{color:var(--muted);font-size:.8rem}
+        .ac-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:12px}
+        .ac{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 6px;border-radius:16px;border:1px solid transparent;font-size:.82rem;font-weight:500;text-align:center;transition:.15s}
+        .ac:hover{background:var(--panel2);border-color:var(--a);transform:translateY(-3px)}
+        .ac .pic{width:84px;height:84px;border-radius:50%;background:var(--grad);display:grid;place-items:center;font-weight:700;font-size:1.6rem;overflow:hidden}
+        .ac .pic img{width:100%;height:100%;object-fit:cover;display:block}
+        .sugg{margin-top:6px}
         footer{border-top:1px solid var(--line);padding:24px 0;color:var(--muted);font-size:.78rem;text-align:center}
         @media(max-width:720px){.stage{grid-template-columns:1fr}.cover{max-width:220px;margin:0 auto}nav button{padding:8px 11px}.logo span{display:none}}
         @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -131,12 +148,26 @@
             <button data-go="home" class="on">Play</button>
             <button data-go="board">Leaderboard</button>
         </nav>
+        <div class="who" id="who"></div>
     </div>
 </header>
 
 <main class="wrap">
+    <!-- LOGIN -->
+    <section class="view on" id="v-login">
+        <div class="login">
+            <h1>Blind<span>beat</span></h1>
+            <p class="lead">Sign in to keep your scores and stats, or jump straight in as a guest.</p>
+            <div class="card">
+                <div id="gSlot"></div>
+                <div class="or">or</div>
+                <button class="btn ghost" id="guestBtn" type="button">Continue as guest</button>
+            </div>
+        </div>
+    </section>
+
     <!-- HOME -->
-    <section class="view on" id="v-home">
+    <section class="view" id="v-home">
         <h1>How well do you <span>know your music?</span></h1>
         <p class="lead">Hear a short clip, guess the song. The faster you answer, the more points you score. 10 questions per game.</p>
         <div class="stats" id="stats"></div>
@@ -152,8 +183,9 @@
                     <input id="artistInput" type="text" placeholder="Search any artist (e.g. Coldplay)" aria-label="Artist name" autocomplete="off">
                     <button class="btn" type="submit">Start</button>
                 </form>
+                <div class="sugg" id="sugg"></div>
                 <p class="sub">Popular artists</p>
-                <div class="chips" id="artistChips"></div>
+                <div class="ac-grid" id="artistGrid"></div>
             </div>
         </div>
 
@@ -190,12 +222,7 @@
         <div class="big grad" id="rScore">0</div>
         <p class="lead" id="rMsg"></p>
         <div class="review" id="review"></div>
-        <div class="card">
-            <form class="save" id="saveForm">
-                <input id="nameInput" maxlength="18" placeholder="Your name for the leaderboard" aria-label="Your name" required>
-                <button class="btn" type="submit">Save score</button>
-            </form>
-        </div>
+        <p class="lead" id="saveNote"></p>
         <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
             <button class="btn ghost" id="again">Play again</button>
             <button class="btn ghost" id="homeBtn">Back to menu</button>
@@ -226,7 +253,7 @@
         var N = 10, LIMIT = 15; // questions per game, seconds per question
         var $ = function (s) { return document.querySelector(s); };
         var $$ = function (s) { return [].slice.call(document.querySelectorAll(s)); };
-        function esc(s) { var d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+        function esc(s) { var d = document.createElement("div"); d.textContent = s; return d.innerHTML.replace(/"/g, "&quot;"); }
         function shuffle(a) { a = a.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
         var LS = {
             get: function (k, d) { try { var v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (e) { return d; } },
@@ -246,6 +273,7 @@
         // ---------- views ----------
         var current = "home";
         function show(id) {
+            if (!session && id !== "login") id = "login";
             current = id;
             $$(".view").forEach(function (v) { v.classList.toggle("on", v.id === "v-" + id); });
             $$("nav button").forEach(function (b) { b.classList.toggle("on", b.dataset.go === (id === "board" ? "board" : "home")); });
@@ -268,7 +296,7 @@
 
         // ---------- stats ----------
         function renderStats() {
-            var s = LS.get("bb_stats", { games: 0, best: 0, correct: 0, asked: 0 });
+            var s = LS.get(SK(), { games: 0, best: 0, correct: 0, asked: 0 });
             var acc = s.asked ? Math.round(s.correct / s.asked * 100) + "%" : "–";
             $("#stats").innerHTML =
                 '<div class="stat"><b>' + s.games + '</b><small>Games played</small></div>' +
@@ -420,9 +448,9 @@
         function finish() {
             stopAudio();
             $("#gProg").style.width = "100%";
-            var s = LS.get("bb_stats", { games: 0, best: 0, correct: 0, asked: 0 });
+            var s = LS.get(SK(), { games: 0, best: 0, correct: 0, asked: 0 });
             s.games++; s.best = Math.max(s.best, G.score); s.correct += G.correct; s.asked += G.qs.length;
-            LS.set("bb_stats", s);
+            LS.set(SK(), s);
             $("#rLabel").textContent = G.label + " · " + G.correct + "/" + G.qs.length + " correct";
             $("#rScore").textContent = G.score;
             var r = G.correct / G.qs.length;
@@ -430,21 +458,14 @@
             $("#review").innerHTML = G.log.map(function (l) {
                 return '<div class="rv ' + (l.ok ? "ok" : "no") + '"><img src="' + esc(l.t.art) + '" alt=""><div><b>' + esc(l.t.title) + "</b><small>" + esc(l.t.artist) + "</small></div><em>" + (l.ok ? "+" + l.pts : "0") + "</em></div>";
             }).join("");
-            $("#nameInput").value = LS.get("bb_name", "");
-            $("#saveForm").style.display = "";
-            show("result");
-        }
-
-        $("#saveForm").addEventListener("submit", function (e) {
-            e.preventDefault();
-            var name = $("#nameInput").value.trim(); if (!name) return;
-            LS.set("bb_name", name);
+            // score is saved automatically under the signed-in profile or guest name
             var b = LS.get("bb_board", []);
-            b.push({ name: name, score: G.score, correct: G.correct, total: G.qs.length, mode: G.mode, label: G.label, date: Date.now() });
+            b.push({ name: session.name, picture: session.picture || "", uid: session.id, score: G.score, correct: G.correct, total: G.qs.length, mode: G.mode, label: G.label, date: Date.now() });
             b.sort(function (x, y) { return y.score - x.score; });
             LS.set("bb_board", b.slice(0, 50));
-            boardFilter = "all"; show("board");
-        });
+            $("#saveNote").innerHTML = "Score saved as <b>" + esc(session.name) + "</b>. Check the leaderboard to see your rank.";
+            show("result");
+        }
         $("#again").addEventListener("click", function () { if (lastStart) start.apply(null, lastStart); });
         $("#homeBtn").addEventListener("click", function () { show("home"); });
 
@@ -463,13 +484,46 @@
             if (!rows.length) { $("#boardBox").innerHTML = '<p class="empty">No scores yet. Play a game and save your score!</p>'; return; }
             $("#boardBox").innerHTML = "<table><thead><tr><th>#</th><th>Player</th><th>Game</th><th>Correct</th><th class='s'>Score</th></tr></thead><tbody>" +
                 rows.map(function (r, i) {
-                    return "<tr><td class='r'>" + (i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1) + "</td><td>" + esc(r.name) + "</td><td>" + esc(r.label) + "</td><td>" + r.correct + "/" + r.total + "</td><td class='s'>" + r.score + "</td></tr>";
+                    return "<tr><td class='r'>" + (i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1) + "</td><td><span style='display:inline-flex;align-items:center;gap:8px'>" + avatar({ name: r.name, picture: r.picture }) + esc(r.name) + "</span></td><td>" + esc(r.label) + "</td><td>" + r.correct + "/" + r.total + "</td><td class='s'>" + r.score + "</td></tr>";
                 }).join("") + "</tbody></table>";
         }
 
         // ---------- menu wiring ----------
-        $("#artistChips").innerHTML = ARTISTS.map(function (a) { return '<button type="button">' + esc(a) + "</button>"; }).join("");
-        $$("#artistChips button").forEach(function (b) { b.addEventListener("click", function () { playArtist(b.textContent); }); });
+        // Artist pictures come from the Deezer API (cached in the browser)
+        var PICS = LS.get("bb_pics", {});
+        function dz(path) {
+            return jsonp("https://api.deezer.com" + path + (path.indexOf("?") > -1 ? "&" : "?") + "output=jsonp").then(function (d) { return d.data || []; });
+        }
+        function cardHtml(name, pic) {
+            return '<button type="button" class="ac" data-n="' + esc(name) + '"><span class="pic">' +
+                (pic ? '<img src="' + esc(pic) + '" alt="" loading="lazy">' : esc(initials(name))) + "</span><span>" + esc(name) + "</span></button>";
+        }
+        function bindCards(root) { $$(root + " .ac").forEach(function (b) { b.onclick = function () { playArtist(b.dataset.n); }; }); }
+        $("#artistGrid").innerHTML = ARTISTS.map(function (a) { return cardHtml(a, PICS[a]); }).join("");
+        bindCards("#artistGrid");
+        ARTISTS.forEach(function (a, i) {
+            if (PICS[a]) return;
+            setTimeout(function () {
+                dz("/search/artist?limit=1&q=" + encodeURIComponent(a)).then(function (r) {
+                    if (!r[0] || !r[0].picture_medium) return;
+                    PICS[a] = r[0].picture_medium; LS.set("bb_pics", PICS);
+                    $$("#artistGrid .ac").forEach(function (el) { if (el.dataset.n === a) el.querySelector(".pic").innerHTML = '<img src="' + esc(PICS[a]) + '" alt="" loading="lazy">'; });
+                }).catch(function () {});
+            }, i * 120);
+        });
+        var sT;
+        $("#artistInput").addEventListener("input", function () {
+            clearTimeout(sT);
+            var v = this.value.trim();
+            if (v.length < 2) { $("#sugg").innerHTML = ""; return; }
+            sT = setTimeout(function () {
+                dz("/search/artist?limit=8&q=" + encodeURIComponent(v)).then(function (r) {
+                    if ($("#artistInput").value.trim() !== v) return;
+                    $("#sugg").innerHTML = r.length ? '<p class="sub">Results</p><div class="ac-grid">' + r.map(function (x) { return cardHtml(x.name, x.picture_medium); }).join("") + "</div>" : "";
+                    bindCards("#sugg");
+                }).catch(function () {});
+            }, 300);
+        });
         $("#artistForm").addEventListener("submit", function (e) {
             e.preventDefault();
             var v = $("#artistInput").value.trim();
@@ -502,7 +556,55 @@
             });
         });
 
-        renderStats();
+        // ---------- sign in (Google or guest) ----------
+        // Paste your Google OAuth Client ID here to turn on "Continue with Google".
+        var GOOGLE_CLIENT_ID = "";
+        var session = LS.get("bb_session", null);
+        function SK() { return "bb_stats_" + (session ? session.id : "x"); }
+        function initials(n) { return (n || "?").trim().charAt(0).toUpperCase(); }
+        function avatar(s) {
+            return s.picture ? '<img class="av" src="' + esc(s.picture) + '" alt="" referrerpolicy="no-referrer">' : '<span class="av">' + esc(initials(s.name)) + "</span>";
+        }
+        function renderWho() {
+            $("nav").style.display = session ? "" : "none";
+            $("#who").innerHTML = session ? avatar(session) + "<span>" + esc(session.name) + '</span><button type="button" id="signout">' + (session.type === "guest" ? "Exit" : "Sign out") + "</button>" : "";
+            var so = $("#signout"); if (so) so.onclick = signOut;
+        }
+        function setSession(s) { session = s; LS.set("bb_session", s); renderWho(); show("home"); }
+        function signOut() {
+            try { if (window.google && google.accounts) google.accounts.id.disableAutoSelect(); } catch (e) {}
+            session = null; LS.set("bb_session", null); stopAudio(); renderWho(); show("login");
+        }
+        function decodeJwt(t) {
+            var p = t.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+            return JSON.parse(decodeURIComponent(atob(p).split("").map(function (c) { return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2); }).join("")));
+        }
+        function onCred(resp) {
+            try {
+                var u = decodeJwt(resp.credential);
+                setSession({ type: "google", id: "g_" + u.sub, name: (u.given_name || u.name || "Player"), picture: u.picture || "" });
+            } catch (e) { toast("Google sign-in failed. Try again or play as guest."); }
+        }
+        var GICON = '<svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z"/><path fill="#FBBC05" d="M10.5 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7l-7.9-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.9 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.500 42.600 14.600 48 24 48z"/></svg>';
+        function initGoogle() {
+            var slot = $("#gSlot"); if (!slot) return;
+            slot.innerHTML = "";
+            if (GOOGLE_CLIENT_ID && window.google && google.accounts) {
+                google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: onCred });
+                google.accounts.id.renderButton(slot, { theme: "filled_black", size: "large", shape: "pill", text: "continue_with" });
+            } else {
+                slot.innerHTML = '<button type="button" class="gbtn" id="gFake">' + GICON + "Continue with Google</button>";
+                $("#gFake").onclick = function () { toast(GOOGLE_CLIENT_ID ? "Google is still loading. Try again in a moment." : "Google sign-in isn't set up yet. Continue as guest for now."); };
+            }
+        }
+        $("#guestBtn").addEventListener("click", function () {
+            setSession({ type: "guest", id: "u_" + Math.random().toString(36).slice(2, 10), name: "Guest" + (1000 + Math.floor(Math.random() * 9000)), picture: "" });
+        });
+        window.addEventListener("load", initGoogle);
+
+        renderWho();
+        show(session ? "home" : "login");
+        initGoogle();
     })();
 </script>
 </body>
