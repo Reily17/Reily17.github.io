@@ -481,7 +481,7 @@
             LS.set("bb_board", b.slice(0, 50));
             $("#saveNote").innerHTML = (REMOTE ? "Score submitted to the public leaderboard as <b>" : "Score saved as <b>") + esc(session.name) + "</b>. Check the leaderboard to see your rank.";
             postScore({ name: session.name, picture: session.picture || "", uid: session.id, score: G.score, correct: G.correct, total: G.qs.length, mode: G.mode, label: G.label })
-                .catch(function () { toast("Couldn't upload your score to the public leaderboard."); });
+                .catch(function (e) { toast(e && e.message && e.message.indexOf("Upload failed") === 0 ? e.message : "Couldn't reach the database. Check that SUPABASE_URL is correct."); console.error(e); });
             show("result");
         }
         $("#again").addEventListener("click", function () { if (lastStart) start.apply(null, lastStart); });
@@ -508,15 +508,20 @@
 
         // ---------- public leaderboard (Supabase) ----------
         // Paste your Supabase project URL and anon public key to make the leaderboard public.
-        var SUPABASE_URL = "https://zcpogducxoquhc....supabase.co";
-        var SUPABASE_KEY = "sb_publishable_xxxxxxxx";
+        var SUPABASE_URL = "";   // e.g. https://abcdxyz.supabase.co
+        var SUPABASE_KEY = "";   // anon public key
         var REMOTE = !!(SUPABASE_URL && SUPABASE_KEY);
         var boardLabel = "all";
-        function sbHeaders() { return { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY, "Content-Type": "application/json" }; }
+        function sbHeaders() {
+            // New publishable keys (sb_publishable_...) go in "apikey" only; legacy anon keys (eyJ...) also go in Authorization.
+            var h = { apikey: SUPABASE_KEY, "Content-Type": "application/json" };
+            if (SUPABASE_KEY.indexOf("sb_") !== 0) h.Authorization = "Bearer " + SUPABASE_KEY;
+            return h;
+        }
         function postScore(row) {
             if (!REMOTE) return Promise.resolve();
             var h = sbHeaders(); h.Prefer = "return=minimal";
-            return fetch(SUPABASE_URL + "/rest/v1/scores", { method: "POST", headers: h, body: JSON.stringify(row) }).then(function (r) { if (!r.ok) throw new Error("save"); });
+            return fetch(SUPABASE_URL + "/rest/v1/scores", { method: "POST", headers: h, body: JSON.stringify(row) }).then(function (r) { if (!r.ok) return r.text().then(function (t) { throw new Error("Upload failed (" + r.status + "): " + t.slice(0, 140)); }); });
         }
         function getRows() {
             if (!REMOTE) return Promise.resolve(LS.get("bb_board", []));
