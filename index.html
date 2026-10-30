@@ -508,8 +508,8 @@
 
         // ---------- public leaderboard (Supabase) ----------
         // Paste your Supabase project URL and anon public key to make the leaderboard public.
-        var SUPABASE_URL = "";   // e.g. https://abcdxyz.supabase.co
-        var SUPABASE_KEY = "";   // anon public key
+        var SUPABASE_URL = "https://zcpogducxoquhc....supabase.co";
+        var SUPABASE_KEY = "sb_publishable_xxxxxxxx";
         var REMOTE = !!(SUPABASE_URL && SUPABASE_KEY);
         var boardLabel = "all";
         function sbHeaders() { return { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY, "Content-Type": "application/json" }; }
